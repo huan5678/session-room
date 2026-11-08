@@ -1,7 +1,7 @@
 import { expect, mock, test } from 'claude-code/testing'
 
 import { nextRoom, roomSvg, shortLabel } from './room'
-import { CHARACTER } from './sprites'
+import { CHARACTER, CHARACTER_BACK } from './sprites'
 
 const PANE = {
   plugin: 'session-room',
@@ -63,6 +63,8 @@ test('seats stick, a mood change walks, a leaver goes, no change is no redraw', 
   expect(roomSvg(nextRoom({ people: [], leaving: [] }, full)).length).toBeLessThan(131072)
   expect(shortLabel('一二三四五六七八九十')).toBe('一二三四五六七…')
   expect(roomSvg(two)).not.toContain('data:')
+  const crowd = Array.from({ length: 24 }, (_, i) => ({ id: String(i), title: `第${i}號`, mood: (['busy', 'idle', 'waiting'] as const)[i % 3] ?? 'busy', since: 1 }))
+  expect(roomSvg(nextRoom({ people: [], leaving: [] }, crowd)).length).toBeLessThan(131072)
 })
 
 const HOST_DIR = '/h/Library/Application Support/Claude/claude-code-sessions'
@@ -181,8 +183,8 @@ test('the cast pane removes a character and saves the choice', async ($, on) => 
   expect((await ui.find({ type: 'Text', text: /已選/ }))?.text).toContain('已選 23 / 24')
   expect(saved.at(-1)).toHaveLength(23)
 
-  await ui.press({ key: 'cast-humans' })
-  expect((await ui.find({ type: 'Text', text: /已選/ }))?.text).toContain('已選 18 / 24')
+  await ui.press({ key: 'cast-all' })
+  expect((await ui.find({ type: 'Text', text: /已選/ }))?.text).toContain('已選 24 / 24')
   await ui.unmount()
 })
 
@@ -192,6 +194,9 @@ test('the room draws only the chosen characters', () => {
     { id: 'b', title: 'b', mood: 'idle', since: 1 },
   ])
   const svg = roomSvg(room, [5])
+  // Asleep facing us, at the desk with their back to us.
   expect(svg).toContain(CHARACTER[5])
+  expect(svg).toContain(CHARACTER_BACK[5])
   expect(svg).not.toContain(CHARACTER[0])
+  expect(svg).not.toContain(CHARACTER_BACK[0])
 })

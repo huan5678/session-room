@@ -1,78 +1,130 @@
 #!/usr/bin/env python3
-"""Cuts the tiles the room draws out of Kenney's sheets into hooks/sprites.ts.
+"""Cuts the room's furniture from AxulArt's interior sheet, paints the cast from their character sheet, into hooks/sprites.ts.
 
-usage: python3 -I build_sprites.py <packs folder> <out.ts>
+usage: python3 -I build_sprites.py <characters.png> <interior.png> <out.ts>
 
-<packs folder> holds pack-tiny-factory/x/Tilemap/tilemap.png and the same for dungeon, city, farm and ski.
+The sheets are Small-8-Direction-Characters_by_AxulArt.png and AxulArt's_Basic-Top-down-interior_By_AxulArt.png.
 """
-import base64
-import io
 import sys
 
 from PIL import Image
 
+chars = Image.open(sys.argv[1]).convert("RGBA")
+interior = Image.open(sys.argv[2]).convert("RGBA")
 
-
-def sheet(pack):
-    return Image.open(f"{sys.argv[1]}/pack-tiny-{pack}/x/Tilemap/tilemap.png").convert("RGBA")
-
-
-factory, dungeon, city, farm, ski = map(sheet, ("factory", "dungeon", "city", "farm", "ski"))
-
-
-def cut(sheet, col, row):
-    x, y = col * 17, row * 17  # 16px tiles, 1px margin
-    return sheet.crop((x, y, x + 16, y + 16))
-
-
-FACTORY = {
-    "floorSpeck": (1, 0), "wall": (8, 3), "wallSeam": (9, 3),
-    "doorL": (10, 5), "doorR": (11, 5), "ground": (3, 0),
-    "pipe": (10, 6), "valve": (7, 6),
-    "shelfT": (0, 6), "shelfB": (0, 7), "crate": (1, 6), "lamp": (9, 10), "flag": (5, 10),
-    "stationRed": (4, 6), "stationYellow": (4, 7), "stationGreen": (4, 8), "stationBlue": (4, 9),
-    "bench": (6, 0),
-    "hazardL": (9, 9), "hazard": (10, 9), "hazardR": (11, 9),
+# x, y, w, h on the interior sheet.
+TILES = {
+    "floor": (48, 144, 16, 16), "wall": (112, 128, 16, 16),
+    "doorWhite": (0, 112, 16, 16), "doorWood": (16, 112, 16, 16), "window": (64, 112, 16, 16),
+    "picture": (176, 48, 16, 16), "clock": (176, 80, 16, 16), "plant": (112, 48, 16, 16),
+    "monitor": (128, 48, 16, 16), "desk": (48, 30, 16, 10), "chair": (64, 64, 16, 16),
+    "bed": (112, 16, 16, 24), "blanket": (112, 28, 16, 12), "rug": (144, 112, 48, 48),
 }
-NAMES = {id(factory): "Tiny Factory", id(city): "Tiny City", id(farm): "Tiny Farm", id(ski): "Tiny Ski", id(dungeon): "Tiny Dungeon"}
-HUMANS = 18
-# The people chosen from the Tiny packs, humans first, monsters last; Battle's soldiers and Ski's skiers are left out on purpose.
-PEOPLE = (
-    [(factory, 0, 10)]
-    + [(city, 0, 9), (city, 0, 10), (city, 1, 10)]
-    + [(farm, 0, 9), (farm, 1, 9)]
-    + [(dungeon, c, 7) for c in range(5)]
-    + [(dungeon, c, 8) for c in range(5)]
-    + [(dungeon, 3, 9), (dungeon, 4, 9)]
-    + [(dungeon, 0, 9), (dungeon, 1, 9), (dungeon, 2, 9)]
-    + [(ski, c, 6) for c in (6, 7, 8)]
-)
+
+# The sheet: three groups of 96px, each an arrow row and three walk rows of 24px; columns N NE E SE S SW W NW.
+GROUPS = {"template": 0, "girl": 1, "boy": 2}
+NORTH, SOUTH = 0, 4
+STAND_ROW = 2  # both feet down
+BODY_TOP, BODY_BOTTOM = 6, 22  # every standing frame fits these rows, so a sprite is 16x16
+
+CLOTHES = [
+    ("74dff5", "36a6e0"), ("f2665e", "b83a55"), ("8fdc7a", "4ba86a"), ("f5d76e", "d09a3e"),
+    ("b79cf0", "7d68c9"), ("e49557", "b2696f"), ("f28fb1", "c75c8e"), ("c4c7ee", "978bde"),
+]
+SKINS = [("ffe3ae", "ffb482"), ("e8b58a", "b97f62"), ("a9745a", "7a4f46")]
+HAIRS = [("3b2f4a", "1c2f60"), ("a6585a", "6e3a4e"), ("e8c15a", "b98a3e"), ("d8dcef", "978bde"), ("4862e5", "2c3a9e"), ("e06aa0", "a53f7c")]
+OUTLINE = "1c2f60"
+CAP = {"girl": ("74dff5", "36a6e0", "4862e5"), "boy": ("e49557", "b2696f", "984868")}
+KIND = [("template", "無帽"), ("girl", "馬尾帽"), ("boy", "短髮帽")]
+
+
+def rgba(text):
+    return tuple(int(text[i : i + 2], 16) for i in (0, 2, 4)) + (255,)
+
+
+def hex_of(pixel):
+    return "%02x%02x%02x" % pixel[:3]
+
+
+def frame(group, column):
+    top = GROUPS[group] * 96 + 24 * (STAND_ROW + 1)
+    cell = chars.crop((column * 16, top, column * 16 + 16, top + 24))
+    box = cell.getbbox()
+    assert box[1] >= BODY_TOP and box[3] <= BODY_BOTTOM, (group, column, box)
+    return cell.crop((0, BODY_TOP, 16, BODY_BOTTOM))
+
+
+def capped(group, column, clothes, skin, hair):
+    main, shade, deep = CAP[group]
+    table = {main: clothes[0], shade: clothes[1], deep: clothes[1], "ffe3ae": skin[0], "ffb482": skin[1], "a6858f": hair[0]}
+    out = frame(group, column)
+    px = out.load()
+    for y in range(16):
+        for x in range(16):
+            if px[x, y][3] and hex_of(px[x, y]) in table:
+                px[x, y] = rgba(table[hex_of(px[x, y])])
+    return out
+
+
+def bare(column, clothes, skin, hair):
+    """The blank template by region: hair, then the face to the chin, then clothes; seen from behind, the head is all hair."""
+    out = frame("template", column)
+    px = out.load()
+    top = out.getbbox()[1]
+    for y in range(16):
+        row = y - top
+        for x in range(16):
+            if not px[x, y][3] or hex_of(px[x, y]) == OUTLINE:
+                continue
+            key = hex_of(px[x, y])
+            if row <= 6 or (row <= 10 and column != SOUTH):
+                colour = hair[1] if key in ("978bde", "c4c7ee") else hair[0]
+            elif row <= 10:
+                colour = hair[1] if key == "635d96" else skin[1] if key in ("978bde", "fcfcfc") else skin[0]
+            elif row <= 13:
+                colour = clothes[1] if key in ("635d96", "978bde") else clothes[0] if key == "c4c7ee" else skin[0]
+            else:
+                colour = "635d96" if key in ("978bde", "635d96") else key
+            px[x, y] = rgba(colour)
+    return out
+
+
+def paint(index, column):
+    group = KIND[index % 3][0]
+    clothes = CLOTHES[index % len(CLOTHES)]
+    skin = SKINS[(index // 3) % len(SKINS)]
+    hair = HAIRS[index % len(HAIRS)]
+    return bare(column, clothes, skin, hair) if group == "template" else capped(group, column, clothes, skin, hair)
 
 
 def paths(image):
     """The tile as one stroked <path> per colour, a run of pixels per segment, so it needs no bitmap or data: URI to draw."""
     by_colour = {}
     pixels = image.load()
-    for y in range(16):
+    for y in range(image.height):
         x = 0
-        while x < 16:
+        while x < image.width:
             r, g, b, a = pixels[x, y]
             if a < 128:
                 x += 1
                 continue
             start = x
-            while x < 16 and pixels[x, y] == (r, g, b, a):
+            while x < image.width and pixels[x, y] == (r, g, b, a):
                 x += 1
             by_colour.setdefault(f"#{r:02x}{g:02x}{b:02x}", []).append(f"M{start} {y}.5h{x - start}")
     return "".join(f'<path stroke="{colour}" d="{"".join(runs)}"/>' for colour, runs in by_colour.items())
 
 
-lines = ["// Generated by assets/build_sprites.py from Kenney's CC0 sheets; see README.md.", "export const TILE = {"]
-lines += [f"  {name}: '{paths(cut(factory, *at))}'," for name, at in FACTORY.items()]
-lines += ["} as const", "", "export const CHARACTER = ["]
-lines += [f"  '{paths(cut(sheet, *at))}'," for sheet, *at in PEOPLE]
-lines += ["] as const", "", "/** Which pack each character came from; the humans come first. */", "export const CHARACTER_PACK = ["]
-lines += [f"  '{NAMES[id(sheet)]}'," for sheet, *_ in PEOPLE]
-lines += ["] as const", "", f"export const HUMAN_COUNT = {HUMANS}", ""]
-with open(sys.argv[2], "w") as out:
+COUNT = 24
+lines = ["// Generated by assets/build_sprites.py from AxulArt's CC BY 4.0 sheets; see README.md.", "export const TILE = {"]
+for name, (x, y, w, h) in TILES.items():
+    lines.append(f"  {name}: '{paths(interior.crop((x, y, x + w, y + h)))}',")
+lines += ["} as const", "", "/** Facing us. */", "export const CHARACTER = ["]
+lines += [f"  '{paths(paint(i, SOUTH))}'," for i in range(COUNT)]
+lines += ["] as const", "", "/** The same people with their backs to us, at a desk. */", "export const CHARACTER_BACK = ["]
+lines += [f"  '{paths(paint(i, NORTH))}'," for i in range(COUNT)]
+lines += ["] as const", "", "/** Which kind of character each is, for the cast pane's groups. */", "export const CHARACTER_PACK = ["]
+lines += [f"  '{KIND[i % 3][1]}'," for i in range(COUNT)]
+lines += ["] as const", ""]
+with open(sys.argv[3], "w", encoding="utf-8") as out:
     out.write("\n".join(lines))

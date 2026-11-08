@@ -4,7 +4,7 @@ import type { Register } from 'claude-code'
 import type { Mood, Person, Room } from '../types'
 
 import { ALL_CHARACTERS, altOf, characterSvg, nextRoom, pictureSvg, roomSize, roomSvg, sessionLink, shortLabel } from './room'
-import { CHARACTER_PACK, HUMAN_COUNT } from './sprites'
+import { CHARACTER_PACK } from './sprites'
 import type { Seen } from './room'
 
 const PANE = 'session-room'
@@ -21,7 +21,7 @@ const expanded = atom({ plugin: 'session-room', key: 'expanded' } as const, [] a
 
 const cast = atom({ plugin: 'session-room', key: 'cast' } as const, ALL_CHARACTERS as number[])
 
-const CAST_KEY = 'cast-24'
+const CAST_KEY = 'cast-axul-24'
 const CAST_PANE = 'session-room-cast'
 const CAST_TITLE = '選角色'
 const CARDS_SHOWN = 3
@@ -276,9 +276,6 @@ export const register: Register = on => {
         <Box flexDirection="row" flexWrap="wrap" gap={1}>
           <Button key="cast-all" onPress={() => void choose(ALL_CHARACTERS)}>
             全選
-          </Button>
-          <Button key="cast-humans" onPress={() => void choose(ALL_CHARACTERS.slice(0, HUMAN_COUNT))}>
-            只留人類
           </Button>
         </Box>
         {packs.map(pack => (

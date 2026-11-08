@@ -1,6 +1,6 @@
 import type { Mood, Person, Room } from '../types'
 
-import { CHARACTER, TILE } from './sprites'
+import { CHARACTER, CHARACTER_BACK, TILE } from './sprites'
 
 /** One session as read from disk, before it has a seat. */
 export type Seen = {
@@ -23,8 +23,8 @@ const WALL = 2 * T
 const CELLS = WALL + 6
 const RUG_ROW = 3 * T
 const WALK = 1.2
-const FLOOR = '#eaa56c'
-const TRIM = '#3e2731'
+const FLOOR = '#c9b3a2'
+const TRIM = '#1c2f60'
 
 type Layout = { rows: number; rug: number; rugRows: number; height: number }
 
@@ -44,15 +44,18 @@ const cellX = (index: number) => SIDE + CELL * (index % COLS)
 const cellY = (seat: number) => CELLS + Math.floor(seat / COLS) * CELL_H
 
 const DOOR: [number, number] = [WIDTH / 2 - T / 2, WALL - 6]
+const DESK_X = 8
+const BED_X = 44
+const BED_Y = 2
 
-/** Each seat is a bay, machine on the left, bench on the right; waiters go to the marked area. */
+/** Each seat is a bay, desk on the left, bed on the right; waiters go to the rugs. */
 const spotOf = (
   person: Pick<Person, 'seat' | 'mood'>,
   place: number,
   layout: Layout,
 ): [number, number] => {
-  if (person.mood === 'busy') return [cellX(person.seat) + 8, cellY(person.seat) + 11]
-  if (person.mood === 'idle') return [cellX(person.seat) + 44, cellY(person.seat) + 14]
+  if (person.mood === 'busy') return [cellX(person.seat) + DESK_X, cellY(person.seat) + 17]
+  if (person.mood === 'idle') return [cellX(person.seat) + BED_X, cellY(person.seat) + BED_Y + 1]
 
   return [cellX(place) + CELL / 2 - T / 2, layout.rug + Math.floor(place / COLS) * RUG_ROW + 12]
 }
@@ -142,38 +145,32 @@ export const shortLabel = (title: string, room = 7) => {
   return out
 }
 
-const tile = (name: keyof typeof TILE, x: number, y: number) =>
-  `<g transform="translate(${x} ${y})">${TILE[name]}</g>`
+const tile = (name: keyof typeof TILE, x: number, y: number) => `<use href="#${name}" x="${x}" y="${y}"/>`
 
-const STATIONS = ['stationRed', 'stationYellow', 'stationGreen', 'stationBlue'] as const
+// Each tile is drawn once here and referenced after: a floor of paths in full would pass the 131072 limit.
+const DEFS = `<defs>${Object.entries(TILE)
+  .map(([name, markup]) => `<g id="${name}">${markup}</g>`)
+  .join('')}</defs>`
 
 const shell = ({ height, rows, rug, rugRows }: Layout) => {
   const out: string[] = [`<rect width="${WIDTH}" height="${height}" fill="${FLOOR}"/>`]
-  // ponytail: fixed scatter, enough to break up the floor without a seeded generator.
-  for (let y = WALL; y < rug; y += 2 * T)
-    for (let x = ((y / T) % 5) * T; x < WIDTH; x += 5 * T) out.push(tile('floorSpeck', x, y))
-  // Outside: ground and a pipe run; then the factory wall with its shutter door.
-  for (let x = 0; x < WIDTH; x += T) {
-    out.push(tile('ground', x, 0), tile('pipe', x, 0))
-    out.push(tile(x % (3 * T) === 0 ? 'wallSeam' : 'wall', x, T))
-  }
-  out.push(tile('valve', 3 * T, 0), tile('valve', WIDTH - 4 * T, 0))
-  out.push(tile('doorL', WIDTH / 2 - T, T), tile('doorR', WIDTH / 2, T))
-  out.push(tile('shelfB', 2 * T, T), tile('crate', 3 * T, T), tile('lamp', WIDTH - 3 * T, T), tile('flag', WIDTH - 4 * T, T))
+  for (let y = WALL; y < height; y += T) for (let x = 0; x < WIDTH; x += T) out.push(tile('floor', x, y))
+  // A white band above the wall, as the pack's own rooms have.
+  out.push(`<rect width="${WIDTH}" height="${T}" fill="#fcfcfc"/>`, `<rect width="${WIDTH}" height="2" fill="${TRIM}"/>`)
+  for (let x = 0; x < WIDTH; x += T) out.push(tile('wall', x, T))
+  out.push(tile('doorWood', WIDTH / 2 - T, T), tile('doorWhite', WIDTH / 2, T))
+  out.push(tile('plant', SIDE, T), tile('window', 3 * T, T), tile('picture', 5 * T, T))
+  out.push(tile('clock', WIDTH - 6 * T, T), tile('window', WIDTH - 4 * T, T), tile('plant', WIDTH - T - SIDE, T))
 
-  // The waiting area: hazard tape around a checker floor, Tiny Factory's own marking.
-  const across = Math.floor((WIDTH - 2 * SIDE) / T)
-  const down = rugRows * 3
-  const left = (WIDTH - across * T) / 2
-  for (let c = 0; c < across; c++) {
-    const name = c === 0 ? 'hazardL' : c === across - 1 ? 'hazardR' : 'hazard'
-    out.push(tile(name, left + c * T, rug + (down - 1) * T))
-  }
+  // The waiting area: a rug under each place.
+  for (let r = 0; r < rugRows; r++)
+    for (let c = 0; c < COLS; c++) out.push(tile('rug', cellX(c) + (CELL - 48) / 2, rug + r * RUG_ROW))
 
   for (let seat = 0; seat < rows * COLS; seat++) {
-    const station = STATIONS[seat % STATIONS.length] ?? 'stationBlue'
-    out.push(tile(station, cellX(seat) + 8, cellY(seat)))
-    out.push(tile('bench', cellX(seat) + 44, cellY(seat) + 14))
+    out.push(tile('monitor', cellX(seat) + DESK_X, cellY(seat) - 2))
+    out.push(tile('desk', cellX(seat) + DESK_X, cellY(seat) + 12))
+    out.push(tile('chair', cellX(seat) + DESK_X, cellY(seat) + 21))
+    out.push(tile('bed', cellX(seat) + BED_X, cellY(seat) + BED_Y))
   }
 
   out.push(
@@ -212,6 +209,7 @@ const snoring = `<text x="13" y="0" font-size="9" font-weight="700" ${FONT} fill
 export const ALL_CHARACTERS = CHARACTER.map((_, index) => index)
 
 const sprite = (seat: number, cast: readonly number[]) => CHARACTER[cast[seat % cast.length] ?? 0] ?? ''
+const backOf = (seat: number, cast: readonly number[]) => CHARACTER_BACK[cast[seat % cast.length] ?? 0] ?? ''
 
 /** One character drawn alone, by its index in CHARACTER. */
 export const pictureSvg = (index: number) =>
@@ -226,19 +224,19 @@ const personSvg = (person: Person, spot: [number, number], cast: readonly number
   const at = person.from ? '' : ` transform="translate(${spot[0]} ${spot[1]})"`
   const name = `<title>${escapeXml(person.title)}</title>`
   if (person.mood === 'busy') {
-    return `<g${at}>${walking}${name}<g>${sprite(person.seat, cast)}${bob(1, '.5s')}</g>${typingDots}</g>`
+    return `<g${at}>${walking}${name}<g>${backOf(person.seat, cast)}${bob(1, '.5s')}</g>${typingDots}</g>`
   }
   if (person.mood === 'waiting') {
     const mark = person.waitingFor ? '!' : '?'
 
     return `<g${at}>${walking}${name}${sprite(person.seat, cast)}${bubble(mark)}${label(person.title, 8, 26)}</g>`
   }
-  // Asleep on the mat, lying down once the walk has ended.
-  const lie = person.from
-    ? `<g>${sprite(person.seat, cast)}<animateTransform attributeName="transform" type="rotate" from="0 8 8" to="-90 8 8" begin="${WALK}s" dur=".2s" fill="freeze"/></g>`
-    : `<g transform="rotate(-90 8 8)">${sprite(person.seat, cast)}</g>`
+  // In bed: the head on the pillow, the blanket over the body once the walk has ended.
+  const covers = person.from
+    ? `<g opacity="0">${TILE.blanket}<animate attributeName="opacity" to="1" begin="${WALK}s" dur=".2s" fill="freeze"/></g>`
+    : TILE.blanket
 
-  return `<g${at}>${walking}${name}${lie}${snoring}</g>`
+  return `<g${at}>${walking}${name}${sprite(person.seat, cast)}<g transform="translate(0 11)">${covers}</g>${snoring}</g>`
 }
 
 const leaverSvg = (one: Room['leaving'][number], cast: readonly number[]) =>
@@ -253,10 +251,11 @@ export const roomSvg = (room: Room, cast: readonly number[] = ALL_CHARACTERS) =>
   // A cubicle keeps its owner's name whether they are in it or not, unless they are on the rug.
   const names = room.people
     .filter(one => one.mood !== 'waiting')
-    .map(one => label(one.title, cellX(one.seat) + CELL / 2, cellY(one.seat) + 43))
+    .map(one => label(one.title, cellX(one.seat) + CELL / 2, cellY(one.seat) + 46))
 
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${WIDTH} ${layout.height}" width="${WIDTH * 2}" height="${layout.height * 2}" shape-rendering="crispEdges" fill="none" stroke-width="1">` +
+    DEFS +
     shell(layout) +
     sitters.map(({ person, spot }) => personSvg(person, spot, cast)).join('') +
     others.map(({ person, spot }) => personSvg(person, spot, cast)).join('') +

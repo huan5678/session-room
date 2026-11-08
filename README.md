@@ -4,7 +4,7 @@ English | [繁體中文](README.zh-TW.md)
 
 A pane beside the chat that draws this project's Claude sessions as characters in a top-down pixel room. `/session-room` reopens it.
 
-<img src="assets/preview.svg" width="448" alt="A pixel factory room: four sessions at their machines, three asleep on benches, one with a ! bubble and one with a ? bubble in the waiting area">
+<img src="assets/preview.svg" width="448" alt="A pixel bedroom-office: four sessions at their desks with their backs to us, three asleep in bed, one with a ! bubble and one with a ? bubble on the rugs">
 
 *Preview drawn by the mod's own `roomSvg` from made-up sessions. In the pane, a board and name buttons sit below the room.*
 
@@ -30,9 +30,9 @@ In the desktop app, where `/plugin` does not run: click + next to the prompt box
 
 | Session state | Character |
 | --- | --- |
-| working (`busy`) | at their own machine, typing dots |
-| waiting on you | in the hazard-marked area with a `!` (a prompt is open) or `?` (the last turn asked for input) |
-| idle | asleep on their own bench |
+| working (`busy`) | at their own desk, back to us, typing dots |
+| waiting on you | on a rug with a `!` (a prompt is open) or `?` (the last turn asked for input) |
+| idle | asleep in their own bed |
 | archived or process ended | walks out of the door, then gone |
 
 Below the room, a board lists the same sessions in three columns: waiting on you, working, finished. Each card shows the session's title, short name, time and the app's summary of its last turn. Its `開啟` button, or the row of name buttons under the room, opens that session through the app's deep link (`claude://claude.ai/epitaxy/<id>`).
@@ -41,21 +41,18 @@ Below the room, a board lists the same sessions in three columns: waiting on you
 
 ## License
 
-The code is under the [MIT License](LICENSE). The art stays CC0, as below.
+The code is under the [MIT License](LICENSE). The art is not: it is under CC BY 4.0, as below, including the sprites in `hooks/sprites.ts`, `assets/preview.svg` and `.claude-plugin/icon.png`.
 
 ## Credits and licenses
 
-Every sprite is cut from these packs by `assets/build_sprites.py` and stored in `hooks/sprites.ts` as pixel-exact SVG paths, so the pane needs no bitmap. No other art is used; the floor colour, trim, bubbles and text are plain SVG.
+Every sprite comes from these packs through `assets/build_sprites.py` and is stored in `hooks/sprites.ts` as pixel-exact SVG paths, so the pane needs no bitmap. No other art is used; the floor colour, trim, bubbles and text are plain SVG.
 
-| Pack | Version | Author | License | Used for |
-| --- | --- | --- | --- | --- |
-| [Tiny Factory](https://kenney.nl/assets/tiny-factory) | 1.0 | Kenney (www.kenney.nl) | [CC0 1.0](http://creativecommons.org/publicdomain/zero/1.0/) | the whole scene, the worker character |
-| [Tiny Dungeon](https://kenney.nl/assets/tiny-dungeon) | 1.0 | Kenney (www.kenney.nl) | [CC0 1.0](http://creativecommons.org/publicdomain/zero/1.0/) | characters |
-| [Tiny City](https://kenney.nl/assets/tiny-city) | 1.0 | Kenney (www.kenney.nl) | [CC0 1.0](http://creativecommons.org/publicdomain/zero/1.0/) | characters |
-| [Tiny Farm](https://kenney.nl/assets/tiny-farm) | 1.0 | Kenney (www.kenney.nl) | [CC0 1.0](http://creativecommons.org/publicdomain/zero/1.0/) | characters |
-| [Tiny Ski](https://kenney.nl/assets/tiny-ski) | 1.0 | Kenney (www.kenney.nl) | [CC0 1.0](http://creativecommons.org/publicdomain/zero/1.0/) | yeti characters |
+| Pack | Author | License | Used for |
+| --- | --- | --- | --- |
+| [Small 8-direction Characters](https://axulart.itch.io/small-8-direction-characters) | AxulArt | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) | every character |
+| [AxulArt's Basic Top-down interior](https://axulart.itch.io/axularts-basic-top-down-interior) | AxulArt | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) | the room and its furniture |
 
-The `License.txt` of each reads: "This content is free to use in personal, educational and commercial projects. Support us by crediting Kenney or www.kenney.nl (this is not mandatory)". Crediting is voluntary; it is done here anyway.
+Modified or based on AxulArt's sprites. The changes: the 24 characters are recoloured from the Girl, Boy and Template sprites (the Template painted by region into hair, face and clothes), the furniture is cut from the sheet and composed into a room, and all of it is converted to SVG paths.
 
 ## Where the state comes from
 
@@ -68,5 +65,5 @@ The mod API has no list of other sessions, so the mod polls local files every 2 
 ## Rebuild the sprites
 
 ```bash
-python3 -I assets/build_sprites.py <folder holding the unpacked pack-tiny-* folders> hooks/sprites.ts
+python3 -I assets/build_sprites.py <characters sheet.png> <interior sheet.png> hooks/sprites.ts
 ```

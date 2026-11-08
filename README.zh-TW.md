@@ -4,7 +4,7 @@
 
 一個放在對話旁邊的 pane，把這個專案的 Claude sessions 畫成俯視像素房間裡的角色。用 `/session-room` 可以重新打開。
 
-<img src="assets/preview.svg" width="448" alt="像素工廠房間：四個 session 在機台前工作，三個在長椅上睡覺，等待區有一個頂著 ! 泡泡、一個頂著 ? 泡泡">
+<img src="assets/preview.svg" width="448" alt="像素臥室兼辦公室：四個 session 背對鏡頭坐在桌前工作，三個在床上睡覺，地毯上有一個頂著 ! 泡泡、一個頂著 ? 泡泡">
 
 *預覽圖由 mod 自己的 `roomSvg` 用虛構的 sessions 畫出。實際的 pane 裡，房間下方還有看板和名字按鈕。*
 
@@ -30,9 +30,9 @@ Desktop app 不能用 `/plugin`：按輸入框旁的 **+**，選 Plugins，用 `
 
 | Session 狀態 | 角色 |
 | --- | --- |
-| 工作中（`busy`） | 在自己的機台前，有打字的跳動點 |
-| 等你 | 在警示帶區，頭上有 `!`（有提示框開著）或 `?`（上一輪要求你輸入） |
-| 閒置 | 在自己的長椅上睡覺 |
+| 工作中（`busy`） | 背對鏡頭坐在自己的桌前，有打字的跳動點 |
+| 等你 | 站在地毯上，頭上有 `!`（有提示框開著）或 `?`（上一輪要求你輸入） |
+| 閒置 | 在自己的床上睡覺 |
 | 已封存或程序已結束 | 走出門後消失 |
 
 房間下方的看板用三欄列出同樣的 sessions：等你回覆、工作中、做完了。每張卡片顯示 session 的標題、短名、時間和 app 對上一輪的摘要。按卡片的 `開啟`，或房間下方那排名字按鈕，會透過 app 的深層連結（`claude://claude.ai/epitaxy/<id>`）開啟該 session。
@@ -41,21 +41,18 @@ Desktop app 不能用 `/plugin`：按輸入框旁的 **+**，選 Plugins，用 `
 
 ## 授權
 
-程式碼採用 [MIT License](LICENSE)。美術素材維持 CC0，詳見下方。
+程式碼採用 [MIT License](LICENSE)。美術素材不適用 MIT，而是採用 CC BY 4.0（詳見下方），包含 `hooks/sprites.ts` 內的圖像、`assets/preview.svg` 和 `.claude-plugin/icon.png`。
 
 ## 素材來源與授權
 
-所有圖像都由 `assets/build_sprites.py` 從以下素材包裁切，並以逐像素的 SVG path 存在 `hooks/sprites.ts`，所以 pane 不需要點陣圖。沒有使用其他美術素材；地板顏色、邊框、泡泡和文字都是純 SVG。
+所有圖像都來自以下素材包，經 `assets/build_sprites.py` 處理後，以逐像素的 SVG path 存在 `hooks/sprites.ts`，所以 pane 不需要點陣圖。沒有使用其他美術素材；地板底色、邊框、泡泡和文字都是純 SVG。
 
-| 素材包 | 版本 | 作者 | 授權 | 用途 |
-| --- | --- | --- | --- | --- |
-| [Tiny Factory](https://kenney.nl/assets/tiny-factory) | 1.0 | Kenney (www.kenney.nl) | [CC0 1.0](http://creativecommons.org/publicdomain/zero/1.0/) | 整個場景、工人角色 |
-| [Tiny Dungeon](https://kenney.nl/assets/tiny-dungeon) | 1.0 | Kenney (www.kenney.nl) | [CC0 1.0](http://creativecommons.org/publicdomain/zero/1.0/) | 角色 |
-| [Tiny City](https://kenney.nl/assets/tiny-city) | 1.0 | Kenney (www.kenney.nl) | [CC0 1.0](http://creativecommons.org/publicdomain/zero/1.0/) | 角色 |
-| [Tiny Farm](https://kenney.nl/assets/tiny-farm) | 1.0 | Kenney (www.kenney.nl) | [CC0 1.0](http://creativecommons.org/publicdomain/zero/1.0/) | 角色 |
-| [Tiny Ski](https://kenney.nl/assets/tiny-ski) | 1.0 | Kenney (www.kenney.nl) | [CC0 1.0](http://creativecommons.org/publicdomain/zero/1.0/) | 雪怪角色 |
+| 素材包 | 作者 | 授權 | 用途 |
+| --- | --- | --- | --- |
+| [Small 8-direction Characters](https://axulart.itch.io/small-8-direction-characters) | AxulArt | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) | 所有角色 |
+| [AxulArt's Basic Top-down interior](https://axulart.itch.io/axularts-basic-top-down-interior) | AxulArt | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) | 房間和家具 |
 
-各素材包的 `License.txt` 都寫著：「This content is free to use in personal, educational and commercial projects. Support us by crediting Kenney or www.kenney.nl (this is not mandatory)」。標註來源並非必要，這裡仍然列出。
+Modified or based on AxulArt's sprites。修改內容：24 個角色由 Girl、Boy、Template 換色而成（Template 依頭髮、臉、衣服分區上色），家具從素材表裁切後拼成房間，全部轉換為 SVG path。
 
 ## 狀態來源
 
@@ -68,5 +65,5 @@ Mod API 沒有提供其他 session 的清單，所以這個 mod 每 2 秒透過 
 ## 重新產生圖像
 
 ```bash
-python3 -I assets/build_sprites.py <存放已解壓 pack-tiny-* 資料夾的資料夾> hooks/sprites.ts
+python3 -I assets/build_sprites.py <角色素材表.png> <室內素材表.png> hooks/sprites.ts
 ```
