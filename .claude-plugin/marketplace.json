@@ -1,0 +1,5 @@
+{
+  "name": "session-room",
+  "owner": { "name": "huan5678" },
+  "plugins": [{ "name": "session-room", "source": "./" }]
+}
