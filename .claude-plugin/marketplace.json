@@ -1,5 +1,6 @@
 {
   "name": "session-room",
+  "description": "The session-room mod: a pixel room of a project's Claude sessions, beside the chat.",
   "owner": { "name": "huan5678" },
   "plugins": [{ "name": "session-room", "source": "./" }]
 }
