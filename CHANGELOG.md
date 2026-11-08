@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.3](https://github.com/huan5678/session-room/releases/tag/v0.1.3) - 2026-11-08
+
+Documentation only; the mod behaves the same as in 0.1.2.
+
+### Added
+
+- This changelog (`CHANGELOG.md`).
+
 ## [0.1.2](https://github.com/huan5678/session-room/releases/tag/v0.1.2) - 2026-11-08
 
 Documentation only; the mod behaves the same as in 0.1.1.
