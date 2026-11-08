@@ -1,6 +1,6 @@
 {
   "name": "session-room",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A top-down pixel room beside the chat: this project's sessions as characters at machines, waiting on you or asleep.",
   "author": { "name": "huan5678" },
   "types": "./types/index.d.ts"
