@@ -1,7 +1,7 @@
 import { expect, mock, test } from 'claude-code/testing'
 
-import { nextRoom, roomSvg, shortLabel } from './room'
-import { CHARACTER, CHARACTER_BACK } from './sprites'
+import { directionOf, nextRoom, roomSvg, shortLabel, SVG_LIMIT } from './room'
+import { CHARACTER, CHARACTER_BACK, WALK } from './sprites'
 
 const PANE = {
   plugin: 'session-room',
@@ -186,6 +186,47 @@ test('the cast pane removes a character and saves the choice', async ($, on) => 
   await ui.press({ key: 'cast-all' })
   expect((await ui.find({ type: 'Text', text: /已選/ }))?.text).toContain('已選 24 / 24')
   await ui.unmount()
+})
+
+test('a walk faces its way, in all eight directions', () => {
+  const from: [number, number] = [50, 50]
+  const seen = [[50, 0], [90, 10], [90, 50], [90, 90], [50, 90], [10, 90], [10, 50], [10, 10]] as const
+  expect(seen.map(to => directionOf(from, to))).toEqual([0, 1, 2, 3, 4, 5, 6, 7])
+})
+
+const person = (i: number, mood: 'busy' | 'idle' | 'waiting') => ({ id: String(i), title: `第${i}號`, mood, since: 1 })
+// Only the walk frames carry this; a bubble's bob repeats by count.
+const STRIDING = 'repeatDur='
+
+test('someone walking plays the frames for their direction, and only while walking', () => {
+  const still = nextRoom({ people: [], leaving: [] }, [person(0, 'busy')])
+  expect(roomSvg(still)).not.toContain(WALK[0]?.[0]?.[0])
+  // From the desk to the rug below it: south, though the seat is at the left of the rug's row.
+  const moved = nextRoom(still, [person(0, 'waiting')])
+  const svg = roomSvg(moved)
+  for (const frame of WALK[0]?.[4] ?? []) expect(svg).toContain(frame)
+  expect(svg).toContain(STRIDING)
+})
+
+test('a leaver walks to the door with their frames', () => {
+  const one = nextRoom({ people: [], leaving: [] }, [person(0, 'waiting'), person(1, 'busy')])
+  const gone = nextRoom(one, [person(1, 'busy')])
+  expect(gone.leaving[0]?.id).toBe('0')
+  expect(roomSvg(gone)).toContain(STRIDING)
+})
+
+const everyoneWalks = (count: number) => {
+  const ids = Array.from({ length: count }, (_, i) => i)
+  const first = nextRoom({ people: [], leaving: [] }, ids.map(i => person(i, 'busy')))
+
+  return nextRoom(first, ids.map(i => person(i, i % 2 ? 'idle' : 'waiting')))
+}
+
+test('a walk keeps its frames while they fit, and the room stays under the limit past that', () => {
+  expect(roomSvg(everyoneWalks(11))).toContain(STRIDING)
+  for (const count of [11, 15, 24, 30]) expect(roomSvg(everyoneWalks(count)).length).toBeLessThanOrEqual(SVG_LIMIT)
+  // Too many walking for their frames: they slide this once, and the room is still drawn.
+  expect(roomSvg(everyoneWalks(24))).not.toContain(STRIDING)
 })
 
 test('the room draws only the chosen characters', () => {

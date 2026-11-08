@@ -24,8 +24,10 @@ TILES = {
 # The sheet: three groups of 96px, each an arrow row and three walk rows of 24px; columns N NE E SE S SW W NW.
 GROUPS = {"template": 0, "girl": 1, "boy": 2}
 NORTH, SOUTH = 0, 4
-STAND_ROW = 2  # both feet down
-BODY_TOP, BODY_BOTTOM = 6, 22  # every standing frame fits these rows, so a sprite is 16x16
+DIRECTIONS = range(8)
+FACE_SHOWS = (2, 3, 4, 5, 6)  # E SE S SW W; from behind, the head is all hair
+STEP, STAND, OTHER_STEP = 0, 1, 2  # the walk rows
+BODY_TOP, BODY_BOTTOM = 5, 22  # the stand row rides one pixel above the steps, so every sprite is 16x17
 
 CLOTHES = [
     ("74dff5", "36a6e0"), ("f2665e", "b83a55"), ("8fdc7a", "4ba86a"), ("f5d76e", "d09a3e"),
@@ -46,38 +48,38 @@ def hex_of(pixel):
     return "%02x%02x%02x" % pixel[:3]
 
 
-def frame(group, column):
-    top = GROUPS[group] * 96 + 24 * (STAND_ROW + 1)
+def frame(group, column, row):
+    top = GROUPS[group] * 96 + 24 * (row + 1)
     cell = chars.crop((column * 16, top, column * 16 + 16, top + 24))
     box = cell.getbbox()
-    assert box[1] >= BODY_TOP and box[3] <= BODY_BOTTOM, (group, column, box)
+    assert box[1] >= BODY_TOP and box[3] <= BODY_BOTTOM, (group, column, row, box)
     return cell.crop((0, BODY_TOP, 16, BODY_BOTTOM))
 
 
-def capped(group, column, clothes, skin, hair):
+def capped(group, column, row, clothes, skin, hair):
     main, shade, deep = CAP[group]
     table = {main: clothes[0], shade: clothes[1], deep: clothes[1], "ffe3ae": skin[0], "ffb482": skin[1], "a6858f": hair[0]}
-    out = frame(group, column)
+    out = frame(group, column, row)
     px = out.load()
-    for y in range(16):
+    for y in range(out.height):
         for x in range(16):
             if px[x, y][3] and hex_of(px[x, y]) in table:
                 px[x, y] = rgba(table[hex_of(px[x, y])])
     return out
 
 
-def bare(column, clothes, skin, hair):
+def bare(column, row_of_sheet, clothes, skin, hair):
     """The blank template by region: hair, then the face to the chin, then clothes; seen from behind, the head is all hair."""
-    out = frame("template", column)
+    out = frame("template", column, row_of_sheet)
     px = out.load()
     top = out.getbbox()[1]
-    for y in range(16):
+    for y in range(out.height):
         row = y - top
         for x in range(16):
             if not px[x, y][3] or hex_of(px[x, y]) == OUTLINE:
                 continue
             key = hex_of(px[x, y])
-            if row <= 6 or (row <= 10 and column != SOUTH):
+            if row <= 6 or (row <= 10 and column not in FACE_SHOWS):
                 colour = hair[1] if key in ("978bde", "c4c7ee") else hair[0]
             elif row <= 10:
                 colour = hair[1] if key == "635d96" else skin[1] if key in ("978bde", "fcfcfc") else skin[0]
@@ -89,12 +91,12 @@ def bare(column, clothes, skin, hair):
     return out
 
 
-def paint(index, column):
+def paint(index, column, row=STAND):
     group = KIND[index % 3][0]
     clothes = CLOTHES[index % len(CLOTHES)]
     skin = SKINS[(index // 3) % len(SKINS)]
     hair = HAIRS[index % len(HAIRS)]
-    return bare(column, clothes, skin, hair) if group == "template" else capped(group, column, clothes, skin, hair)
+    return bare(column, row, clothes, skin, hair) if group == "template" else capped(group, column, row, clothes, skin, hair)
 
 
 def paths(image):
@@ -126,5 +128,14 @@ lines += [f"  '{paths(paint(i, NORTH))}'," for i in range(COUNT)]
 lines += ["] as const", "", "/** Which kind of character each is, for the cast pane's groups. */", "export const CHARACTER_PACK = ["]
 lines += [f"  '{KIND[i % 3][1]}'," for i in range(COUNT)]
 lines += ["] as const", ""]
+# Annotated, not `as const`: a literal type of this size would slow every type check.
+lines += ["/** By character, then direction (N NE E SE S SW W NW), then frame (step, stand, other step). */", "export const WALK: readonly (readonly (readonly string[])[])[] = ["]
+for i in range(COUNT):
+    lines.append("  [")
+    for column in DIRECTIONS:
+        frames = ", ".join(f"'{paths(paint(i, column, row))}'" for row in (STEP, STAND, OTHER_STEP))
+        lines.append(f"    [{frames}],")
+    lines.append("  ],")
+lines += ["]", ""]
 with open(sys.argv[3], "w", encoding="utf-8") as out:
     out.write("\n".join(lines))

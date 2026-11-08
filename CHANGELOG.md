@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.2.1](https://github.com/huan5678/session-room/releases/tag/v0.2.1) - 2026-11-09
+
+### Added
+
+- Characters face their way and play walk frames as they move, in all eight directions. When too many walk at once for the 131072-character limit, they slide that once without frames.
+
+### Fixed
+
+- Standing characters used a mid-step frame; they now use the pack's standing one.
+- The Template characters' side and three-quarter views are painted with faces instead of all hair.
+
 ## [0.2.0](https://github.com/huan5678/session-room/releases/tag/v0.2.0) - 2026-11-09
 
 ### Changed

@@ -1,6 +1,6 @@
 import type { Mood, Person, Room } from '../types'
 
-import { CHARACTER, CHARACTER_BACK, TILE } from './sprites'
+import { CHARACTER, CHARACTER_BACK, TILE, WALK as WALK_FRAMES } from './sprites'
 
 /** One session as read from disk, before it has a seat. */
 export type Seen = {
@@ -23,6 +23,8 @@ const WALL = 2 * T
 const CELLS = WALL + 6
 const RUG_ROW = 3 * T
 const WALK = 1.2
+/** What `Svg` accepts. */
+export const SVG_LIMIT = 131072
 const FLOOR = '#c9b3a2'
 const TRIM = '#1c2f60'
 
@@ -54,8 +56,8 @@ const spotOf = (
   place: number,
   layout: Layout,
 ): [number, number] => {
-  if (person.mood === 'busy') return [cellX(person.seat) + DESK_X, cellY(person.seat) + 17]
-  if (person.mood === 'idle') return [cellX(person.seat) + BED_X, cellY(person.seat) + BED_Y + 1]
+  if (person.mood === 'busy') return [cellX(person.seat) + DESK_X, cellY(person.seat) + 16]
+  if (person.mood === 'idle') return [cellX(person.seat) + BED_X, cellY(person.seat) + BED_Y]
 
   return [cellX(place) + CELL / 2 - T / 2, layout.rug + Math.floor(place / COLS) * RUG_ROW + 12]
 }
@@ -213,34 +215,55 @@ const backOf = (seat: number, cast: readonly number[]) => CHARACTER_BACK[cast[se
 
 /** One character drawn alone, by its index in CHARACTER. */
 export const pictureSvg = (index: number) =>
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="32" height="32" shape-rendering="crispEdges" fill="none" stroke-width="1">${CHARACTER[index] ?? ''}</svg>`
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 17" width="32" height="34" shape-rendering="crispEdges" fill="none" stroke-width="1">${CHARACTER[index] ?? ''}</svg>`
 
 /** A person's character alone, the same sprite their seat gives them in the room. */
 export const characterSvg = (seat: number, cast: readonly number[]) =>
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="24" height="24" shape-rendering="crispEdges" fill="none" stroke-width="1">${sprite(seat, cast)}</svg>`
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 17" width="24" height="26" shape-rendering="crispEdges" fill="none" stroke-width="1">${sprite(seat, cast)}</svg>`
 
-const personSvg = (person: Person, spot: [number, number], cast: readonly number[]) => {
-  const walking = person.from ? walkTo(person.from, spot) : ''
-  const at = person.from ? '' : ` transform="translate(${spot[0]} ${spot[1]})"`
-  const name = `<title>${escapeXml(person.title)}</title>`
-  if (person.mood === 'busy') {
-    return `<g${at}>${walking}${name}<g>${backOf(person.seat, cast)}${bob(1, '.5s')}</g>${typingDots}</g>`
-  }
+/** The sheet's column for a walk from one point to another: 0 N, then clockwise. */
+export const directionOf = (from: readonly [number, number], to: readonly [number, number]) =>
+  (Math.round(Math.atan2(to[0] - from[0], from[1] - to[1]) / (Math.PI / 4)) + 8) % 8
+
+// One step every .1s: step, stand, other step, stand.
+const STRIDE = ['1;0;0;0', '0;1;0;1', '0;0;1;0']
+
+const strideSvg = (seat: number, cast: readonly number[], from: readonly [number, number], to: readonly [number, number]) =>
+  (WALK_FRAMES[cast[seat % cast.length] ?? 0]?.[directionOf(from, to)] ?? [])
+    .map(
+      (frame, i) =>
+        `<g opacity="0">${frame}<animate attributeName="opacity" values="${STRIDE[i]}" calcMode="discrete" dur=".4s" repeatDur="${WALK}s"/></g>`,
+    )
+    .join('')
+
+/** Shown only once the walk has ended. */
+const onArrival = (pose: string) =>
+  `<g opacity="0">${pose}<animate attributeName="opacity" to="1" begin="${WALK}s" dur=".01s" fill="freeze"/></g>`
+
+const poseSvg = (person: Person, cast: readonly number[]) => {
+  if (person.mood === 'busy') return `<g>${backOf(person.seat, cast)}${bob(1, '.5s')}</g>${typingDots}`
   if (person.mood === 'waiting') {
     const mark = person.waitingFor ? '!' : '?'
 
-    return `<g${at}>${walking}${name}${sprite(person.seat, cast)}${bubble(mark)}${label(person.title, 8, 26)}</g>`
+    return `${sprite(person.seat, cast)}${bubble(mark)}${label(person.title, 8, 27)}`
   }
-  // In bed: the head on the pillow, the blanket over the body once the walk has ended.
-  const covers = person.from
-    ? `<g opacity="0">${TILE.blanket}<animate attributeName="opacity" to="1" begin="${WALK}s" dur=".2s" fill="freeze"/></g>`
-    : TILE.blanket
 
-  return `<g${at}>${walking}${name}${sprite(person.seat, cast)}<g transform="translate(0 11)">${covers}</g>${snoring}</g>`
+  // In bed: the head on the pillow, the blanket over the body.
+  return `${sprite(person.seat, cast)}<g transform="translate(0 12)">${TILE.blanket}</g>${snoring}`
 }
 
-const leaverSvg = (one: Room['leaving'][number], cast: readonly number[]) =>
-  `<g transform="translate(${DOOR[0]} ${DOOR[1]})" opacity="1">${walkTo(one.from, DOOR)}<animate attributeName="opacity" values="1;1;0" keyTimes="0;.85;1" dur="${WALK}s" fill="freeze"/>${sprite(one.seat, cast)}</g>`
+const personSvg = (person: Person, spot: [number, number], cast: readonly number[], strides: boolean) => {
+  const name = `<title>${escapeXml(person.title)}</title>`
+  if (!person.from) return `<g transform="translate(${spot[0]} ${spot[1]})">${name}${poseSvg(person, cast)}</g>`
+  const body = strides
+    ? strideSvg(person.seat, cast, person.from, spot) + onArrival(poseSvg(person, cast))
+    : poseSvg(person, cast)
+
+  return `<g>${walkTo(person.from, spot)}${name}${body}</g>`
+}
+
+const leaverSvg = (one: Room['leaving'][number], cast: readonly number[], strides: boolean) =>
+  `<g transform="translate(${DOOR[0]} ${DOOR[1]})" opacity="1">${walkTo(one.from, DOOR)}<animate attributeName="opacity" values="1;1;0" keyTimes="0;.85;1" dur="${WALK}s" fill="freeze"/>${strides ? strideSvg(one.seat, cast, one.from, DOOR) : sprite(one.seat, cast)}</g>`
 
 /** The whole room as one SVG document of plain paths; animation is SMIL, so it runs with no script. */
 export const roomSvg = (room: Room, cast: readonly number[] = ALL_CHARACTERS) => {
@@ -252,17 +275,19 @@ export const roomSvg = (room: Room, cast: readonly number[] = ALL_CHARACTERS) =>
   const names = room.people
     .filter(one => one.mood !== 'waiting')
     .map(one => label(one.title, cellX(one.seat) + CELL / 2, cellY(one.seat) + 46))
-
-  return (
+  const draw = (strides: boolean) =>
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${WIDTH} ${layout.height}" width="${WIDTH * 2}" height="${layout.height * 2}" shape-rendering="crispEdges" fill="none" stroke-width="1">` +
     DEFS +
     shell(layout) +
-    sitters.map(({ person, spot }) => personSvg(person, spot, cast)).join('') +
-    others.map(({ person, spot }) => personSvg(person, spot, cast)).join('') +
-    room.leaving.map(one => leaverSvg(one, cast)).join('') +
+    sitters.map(({ person, spot }) => personSvg(person, spot, cast, strides)).join('') +
+    others.map(({ person, spot }) => personSvg(person, spot, cast, strides)).join('') +
+    room.leaving.map(one => leaverSvg(one, cast, strides)).join('') +
     names.join('') +
     '</svg>'
-  )
+  const full = draw(true)
+
+  // Many walking at once is rare and brief: they slide this once rather than the room going missing.
+  return full.length <= SVG_LIMIT ? full : draw(false)
 }
 
 const MOOD_WORD: Record<Mood, string> = { busy: '工作中', waiting: '等你', idle: '閒置' }

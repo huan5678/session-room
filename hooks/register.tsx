@@ -3,7 +3,7 @@ import type { Register } from 'claude-code'
 
 import type { Mood, Person, Room } from '../types'
 
-import { ALL_CHARACTERS, altOf, characterSvg, nextRoom, pictureSvg, roomSize, roomSvg, sessionLink, shortLabel } from './room'
+import { ALL_CHARACTERS, altOf, characterSvg, nextRoom, pictureSvg, roomSize, roomSvg, sessionLink, shortLabel, SVG_LIMIT } from './room'
 import { CHARACTER_PACK } from './sprites'
 import type { Seen } from './room'
 
@@ -11,7 +11,6 @@ const PANE = 'session-room'
 const TITLE = 'Session 房間'
 const POLL_MS = 2000
 const SLOW_EVERY = 3
-const SVG_LIMIT = 131072
 
 const room = atom({ plugin: 'session-room', key: 'room' } as const, { people: [], leaving: [] } as Room, {
   shape: 'room-3',
@@ -294,7 +293,7 @@ export const register: Register = on => {
                     borderColor={isChosen ? '#2f9e44' : '#868e96'}
                     paddingX={1}
                   >
-                    <Svg source={pictureSvg(index)} alt={`${pack} 角色 ${index + 1}`} width={32} height={32} />
+                    <Svg source={pictureSvg(index)} alt={`${pack} 角色 ${index + 1}`} width={32} height={34} />
                     <Button key={`cast-${index}`} plain onPress={toggle(index)}>
                       <Text color={isChosen ? '#2f9e44' : '#868e96'}>{isChosen ? '✓ 已加入' : '＋ 加入'}</Text>
                     </Button>
@@ -459,7 +458,7 @@ export const register: Register = on => {
                   hover={{ borderStyle: 'bold' }}
                 >
                   <Box position="relative">
-                    <Svg source={characterSvg(person.seat, chosen)} alt={`${person.title} 的角色`} width={24} height={24} />
+                    <Svg source={characterSvg(person.seat, chosen)} alt={`${person.title} 的角色`} width={24} height={26} />
                     <Box position="absolute" top={0} left={0}>
                       <Button key={`face-${person.id}`} plain onPress={openSession(link)}>
                         <Text size="heading">{'\u3000\u3000'}</Text>
