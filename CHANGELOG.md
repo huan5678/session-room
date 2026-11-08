@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.0](https://github.com/huan5678/session-room/releases/tag/v0.3.0) - 2026-11-09
+
+### Added
+
+- Characters of your own: an optional `~/.claude/session-room-local/cast.json` adds characters that stay on your computer, for art whose license forbids sharing it.
+
 ## [0.2.1](https://github.com/huan5678/session-room/releases/tag/v0.2.1) - 2026-11-09
 
 ### Added

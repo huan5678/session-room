@@ -39,6 +39,16 @@ Desktop app 不能用 `/plugin`：按輸入框旁的 **+**，選 Plugins，用 `
 
 房間下方的 `選角色`（或 `/session-room-cast`）會打開一個 pane，讓你從 24 個角色裡選擇要出現的角色，選擇會跨 session 保存。Session 比選到的角色多時，角色會重複出現。
 
+## 自己的角色
+
+授權不允許分享的素材，也可以只出現在你自己的房間，不必進這個 repo。Session 啟動時，mod 會讀取 `~/.claude/session-room-local/cast.json`（如果存在），`選角色` 會把裡面的角色排在最前面，session 會優先使用它們：
+
+```json
+{ "characters": [{ "pack": "群組名稱", "offset": [-5, -5], "front": "<path…/>", "back": "<path…/>", "walk": [["跨步", "站立", "另一腳跨步"]] }] }
+```
+
+`walk` 有 8 項，依序是 N NE E SE S SW W NW，每項 3 格。每張圖都是 `assets/build_sprites.py` 輸出的那種 `<path stroke="#rrggbb" d="M0 0.5h1…"/>` 元素，含有其他內容的角色會被忽略。`offset` 用來對齊房間 16×17 的角色位置。如果你已經存過角色選擇，新角色要自己勾選才會加入。
+
 ## 授權
 
 程式碼採用 [MIT License](LICENSE)。美術素材不適用 MIT，而是採用 CC BY 4.0（詳見下方），包含 `hooks/sprites.ts` 內的圖像、`assets/preview.svg` 和 `.claude-plugin/icon.png`。

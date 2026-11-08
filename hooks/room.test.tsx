@@ -1,6 +1,6 @@
 import { expect, mock, test } from 'claude-code/testing'
 
-import { directionOf, nextRoom, roomSvg, shortLabel, SVG_LIMIT } from './room'
+import { ALL_CHARACTERS, directionOf, nextRoom, packOf, parseLocalCast, roomSvg, setLocalCast, shortLabel, SVG_LIMIT } from './room'
 import { CHARACTER, CHARACTER_BACK, WALK } from './sprites'
 
 const PANE = {
@@ -227,6 +227,45 @@ test('a walk keeps its frames while they fit, and the room stays under the limit
   for (const count of [11, 15, 24, 30]) expect(roomSvg(everyoneWalks(count)).length).toBeLessThanOrEqual(SVG_LIMIT)
   // Too many walking for their frames: they slide this once, and the room is still drawn.
   expect(roomSvg(everyoneWalks(24))).not.toContain(STRIDING)
+})
+
+const FRONT = '<path stroke="#112233" d="M1 2.5h3"/>'
+const BACK = '<path stroke="#445566" d="M0 0.5h1"/>'
+const localFile = (over: object = {}) =>
+  JSON.stringify({ characters: [{ pack: '本機', offset: [-5, -5], front: FRONT, back: BACK, walk: Array.from({ length: 8 }, () => [FRONT, BACK, FRONT]), ...over }] })
+
+test('a cast file adds characters after the built-in ones, and the room draws them', () => {
+  const builtIn = ALL_CHARACTERS.length
+  const parsed = parseLocalCast(localFile())
+  expect(parsed).toHaveLength(1)
+  setLocalCast(parsed)
+  try {
+    expect(ALL_CHARACTERS).toHaveLength(builtIn + 1)
+    expect(ALL_CHARACTERS[0]).toBe(builtIn)
+    expect(packOf(builtIn)).toBe('本機')
+    const room = nextRoom({ people: [], leaving: [] }, [person(0, 'idle'), person(1, 'busy')])
+    const svg = roomSvg(room, [builtIn])
+    expect(svg).toContain(`<g transform="translate(-5 -5)">${FRONT}</g>`)
+    expect(svg).toContain(`<g transform="translate(-5 -5)">${BACK}</g>`)
+  } finally {
+    setLocalCast([])
+  }
+  expect(ALL_CHARACTERS).toHaveLength(builtIn)
+})
+
+test('a cast file can only bring pixels into the drawing', () => {
+  const hostile = '<script>alert(1)</script>'
+  for (const over of [
+    { front: hostile },
+    { back: '<path stroke="#112233" d="M1 2.5h3" onload="alert(1)"/>' },
+    { walk: Array.from({ length: 8 }, () => [hostile, FRONT, FRONT]) },
+    { walk: [[FRONT, FRONT, FRONT]] },
+    { offset: ['1) scale(9', 0] },
+    { pack: '' },
+  ])
+    expect(parseLocalCast(localFile(over))).toEqual([])
+  expect(parseLocalCast('{"characters":[null,3]}')).toEqual([])
+  expect(parseLocalCast('[]')).toEqual([])
 })
 
 test('the room draws only the chosen characters', () => {

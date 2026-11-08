@@ -1,6 +1,6 @@
 import type { Mood, Person, Room } from '../types'
 
-import { CHARACTER, CHARACTER_BACK, TILE, WALK as WALK_FRAMES } from './sprites'
+import { CHARACTER, CHARACTER_BACK, CHARACTER_PACK, TILE, WALK as WALK_FRAMES } from './sprites'
 
 /** One session as read from disk, before it has a seat. */
 export type Seen = {
@@ -208,18 +208,64 @@ const typingDots = [0, 1, 2]
 const snoring = `<text x="13" y="0" font-size="9" font-weight="700" ${FONT} fill="#1c7ed6" stroke="#fff" stroke-width="1.5" paint-order="stroke">z<animate attributeName="y" values="2;-6" dur="2.4s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" dur="2.4s" repeatCount="indefinite"/></text>`
 
 /** The characters chosen to appear, as indexes into CHARACTER; seats go round them. */
-export const ALL_CHARACTERS = CHARACTER.map((_, index) => index)
+export const ALL_CHARACTERS: number[] = CHARACTER.map((_, index) => index)
 
-const sprite = (seat: number, cast: readonly number[]) => CHARACTER[cast[seat % cast.length] ?? 0] ?? ''
-const backOf = (seat: number, cast: readonly number[]) => CHARACTER_BACK[cast[seat % cast.length] ?? 0] ?? ''
+/** A character from this computer's own cast file, numbered after the built-in ones. */
+export type LocalCharacter = { pack: string; front: string; back: string; walk: string[][] }
+
+let localCast: readonly LocalCharacter[] = []
+const localOf = (index: number) => localCast[index - CHARACTER.length]
+
+export const setLocalCast = (characters: readonly LocalCharacter[]) => {
+  localCast = characters
+  // First in line: seats take characters in order, so someone who added their own sees them.
+  ALL_CHARACTERS.splice(0, ALL_CHARACTERS.length, ...characters.map((_, i) => CHARACTER.length + i), ...CHARACTER.map((_, i) => i))
+}
+
+const PIXELS = /^(?:<path stroke="#[0-9a-f]{6}" d="(?:M\d+ \d+\.5h\d+)+"\/>)*$/
+const isPixels = (value: unknown): value is string => typeof value === 'string' && PIXELS.test(value)
+
+/** The cast file: nothing but pixel paths gets through to the drawing, whatever the file holds. */
+export const parseLocalCast = (text: string): LocalCharacter[] => {
+  const file: unknown = JSON.parse(text)
+  const list = typeof file === 'object' && file !== null && 'characters' in file ? file.characters : undefined
+  if (!Array.isArray(list)) return []
+
+  return list.flatMap((one: Record<string, unknown>): LocalCharacter[] => {
+    const { pack, offset, front, back, walk } = one ?? {}
+    if (typeof pack !== 'string' || pack.length === 0 || pack.length > 40) return []
+    if (!isPixels(front) || !isPixels(back)) return []
+    if (!Array.isArray(walk) || walk.length !== 8) return []
+    if (!walk.every(way => Array.isArray(way) && way.length === 3 && way.every(isPixels))) return []
+    const [dx, dy]: unknown[] = Array.isArray(offset) ? offset : [0, 0]
+    if (!Number.isInteger(dx) || !Number.isInteger(dy)) return []
+    const place = (markup: string) => `<g transform="translate(${String(dx)} ${String(dy)})">${markup}</g>`
+
+    return [{ pack, front: place(front), back: place(back), walk: (walk as string[][]).map(way => way.map(place)) }]
+  })
+}
+
+const frontOf = (index: number) => CHARACTER[index] ?? localOf(index)?.front ?? ''
+const sprite = (seat: number, cast: readonly number[]) => frontOf(cast[seat % cast.length] ?? 0)
+const backOf = (seat: number, cast: readonly number[]) => {
+  const index = cast[seat % cast.length] ?? 0
+
+  return CHARACTER_BACK[index] ?? localOf(index)?.back ?? ''
+}
+
+/** Which group a character belongs to in the cast pane. */
+export const packOf = (index: number): string => CHARACTER_PACK[index] ?? localOf(index)?.pack ?? ''
+
+// A local character may stand taller and wider than the 16x17 of the built-in ones.
+const viewOf = (index: number) => (localOf(index) ? '-6 -6 28 24' : '0 0 16 17')
 
 /** One character drawn alone, by its index in CHARACTER. */
 export const pictureSvg = (index: number) =>
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 17" width="32" height="34" shape-rendering="crispEdges" fill="none" stroke-width="1">${CHARACTER[index] ?? ''}</svg>`
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewOf(index)}" width="32" height="34" shape-rendering="crispEdges" fill="none" stroke-width="1">${frontOf(index)}</svg>`
 
 /** A person's character alone, the same sprite their seat gives them in the room. */
 export const characterSvg = (seat: number, cast: readonly number[]) =>
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 17" width="24" height="26" shape-rendering="crispEdges" fill="none" stroke-width="1">${sprite(seat, cast)}</svg>`
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewOf(cast[seat % cast.length] ?? 0)}" width="24" height="26" shape-rendering="crispEdges" fill="none" stroke-width="1">${sprite(seat, cast)}</svg>`
 
 /** The sheet's column for a walk from one point to another: 0 N, then clockwise. */
 export const directionOf = (from: readonly [number, number], to: readonly [number, number]) =>
@@ -228,8 +274,10 @@ export const directionOf = (from: readonly [number, number], to: readonly [numbe
 // One step every .1s: step, stand, other step, stand.
 const STRIDE = ['1;0;0;0', '0;1;0;1', '0;0;1;0']
 
+const walkOf = (index: number) => WALK_FRAMES[index] ?? localOf(index)?.walk ?? []
+
 const strideSvg = (seat: number, cast: readonly number[], from: readonly [number, number], to: readonly [number, number]) =>
-  (WALK_FRAMES[cast[seat % cast.length] ?? 0]?.[directionOf(from, to)] ?? [])
+  (walkOf(cast[seat % cast.length] ?? 0)[directionOf(from, to)] ?? [])
     .map(
       (frame, i) =>
         `<g opacity="0">${frame}<animate attributeName="opacity" values="${STRIDE[i]}" calcMode="discrete" dur=".4s" repeatDur="${WALK}s"/></g>`,

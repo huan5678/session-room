@@ -39,6 +39,16 @@ Below the room, a board lists the same sessions in three columns: waiting on you
 
 `選角色` under the room (or `/session-room-cast`) opens a pane to choose which of the 24 characters appear; the choice is kept across sessions. Sessions outnumbering the chosen characters repeat them.
 
+## Characters of your own
+
+Art whose license forbids sharing it can still appear in your own room, without entering this repository. At session start the mod reads `~/.claude/session-room-local/cast.json` if it exists, and `選角色` lists its characters first, so sessions take them before the built-in ones:
+
+```json
+{ "characters": [{ "pack": "group name", "offset": [-5, -5], "front": "<path…/>", "back": "<path…/>", "walk": [["step", "stand", "other step"]] }] }
+```
+
+`walk` has eight entries, N NE E SE S SW W NW, each of three frames. Every drawing is `<path stroke="#rrggbb" d="M0 0.5h1…"/>` elements in the form `assets/build_sprites.py` writes, and a character holding anything else is ignored. `offset` places them on the room's 16x17 sprite. A character already chosen stays; new ones need choosing if you have saved a choice.
+
 ## License
 
 The code is under the [MIT License](LICENSE). The art is not: it is under CC BY 4.0, as below, including the sprites in `hooks/sprites.ts`, `assets/preview.svg` and `.claude-plugin/icon.png`.

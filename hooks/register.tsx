@@ -3,8 +3,7 @@ import type { Register } from 'claude-code'
 
 import type { Mood, Person, Room } from '../types'
 
-import { ALL_CHARACTERS, altOf, characterSvg, nextRoom, pictureSvg, roomSize, roomSvg, sessionLink, shortLabel, SVG_LIMIT } from './room'
-import { CHARACTER_PACK } from './sprites'
+import { ALL_CHARACTERS, altOf, characterSvg, nextRoom, packOf, parseLocalCast, pictureSvg, roomSize, roomSvg, sessionLink, setLocalCast, shortLabel, SVG_LIMIT } from './room'
 import type { Seen } from './room'
 
 const PANE = 'session-room'
@@ -18,7 +17,7 @@ const room = atom({ plugin: 'session-room', key: 'room' } as const, { people: []
 const minute = atom({ plugin: 'session-room', key: 'minute' } as const, 0)
 const expanded = atom({ plugin: 'session-room', key: 'expanded' } as const, [] as string[])
 
-const cast = atom({ plugin: 'session-room', key: 'cast' } as const, ALL_CHARACTERS as number[])
+const cast = atom({ plugin: 'session-room', key: 'cast' } as const, [...ALL_CHARACTERS])
 
 const CAST_KEY = 'cast-axul-24'
 const CAST_PANE = 'session-room-cast'
@@ -220,9 +219,15 @@ export const register: Register = on => {
     await $.command.register({ name: 'session-room', description: '打開 session 房間 pane' })
     await $.command.register({ name: 'session-room-cast', description: '選擇哪些角色加入 session 房間' })
     // The key names the character list's version: indexes mean other characters in another one.
+    // Characters of this computer's own, which the repository cannot carry: none is the usual case.
+    const local = await $.fs
+      .read(`${configured ?? `${home}/.claude`}/session-room-local/cast.json`)
+      .then(parseLocalCast)
+      .catch(() => [])
+    setLocalCast(local)
     const saved = await $.store.get(CAST_KEY)
     const valid = Array.isArray(saved) ? saved.filter((one): one is number => ALL_CHARACTERS.includes(one)) : []
-    await update($, cast, () => (valid.length > 0 ? valid : ALL_CHARACTERS))
+    await update($, cast, () => (valid.length > 0 ? valid : [...ALL_CHARACTERS]))
     void tick().catch(() => undefined)
     $.clock.every(POLL_MS, () => {
       void tick().catch(() => undefined)
@@ -265,7 +270,7 @@ export const register: Register = on => {
         : ALL_CHARACTERS.filter(one => one === index || chosen.includes(one))
       void choose(next)
     }
-    const packs = [...new Set<string>(CHARACTER_PACK)]
+    const packs = [...new Set(ALL_CHARACTERS.map(packOf))]
 
     return (
       <Box flexDirection="column" gap={1}>
@@ -273,7 +278,7 @@ export const register: Register = on => {
           已選 {chosen.length} / {ALL_CHARACTERS.length} 個。Session 比角色多時，角色會重複出現。
         </Text>
         <Box flexDirection="row" flexWrap="wrap" gap={1}>
-          <Button key="cast-all" onPress={() => void choose(ALL_CHARACTERS)}>
+          <Button key="cast-all" onPress={() => void choose([...ALL_CHARACTERS])}>
             全選
           </Button>
         </Box>
@@ -281,7 +286,7 @@ export const register: Register = on => {
           <Box flexDirection="column" gap={1}>
             <Text bold>{pack}</Text>
             <Box flexDirection="row" flexWrap="wrap" gap={1}>
-              {ALL_CHARACTERS.filter(index => CHARACTER_PACK[index] === pack).map(index => {
+              {ALL_CHARACTERS.filter(index => packOf(index) === pack).map(index => {
                 const isChosen = chosen.includes(index)
 
                 return (
