@@ -1,5 +1,7 @@
 # session-room
 
+English | [繁體中文](README.zh-TW.md)
+
 A pane beside the chat that draws this project's Claude sessions as characters in a top-down pixel room. `/session-room` reopens it.
 
 <img src="assets/preview.svg" width="448" alt="A pixel factory room: four sessions at their machines, three asleep on benches, one with a ! bubble and one with a ? bubble in the waiting area">
