@@ -2,6 +2,10 @@
 
 A pane beside the chat that draws this project's Claude sessions as characters in a top-down pixel room. `/session-room` reopens it.
 
+<img src="assets/preview.svg" width="448" alt="A pixel factory room: four sessions at their machines, three asleep on benches, one with a ! bubble and one with a ? bubble in the waiting area">
+
+*Preview drawn by the mod's own `roomSvg` from made-up sessions. In the pane, a board and name buttons sit below the room.*
+
 Requires the Claude desktop app on macOS: the room is SVG, which only the desktop surface draws (a terminal shows the board alone), and session titles and links come from the app's local files.
 
 ## Install
@@ -32,6 +36,10 @@ In the desktop app, where `/plugin` does not run: click + next to the prompt box
 Below the room, a board lists the same sessions in three columns: waiting on you, working, finished. Each card shows the session's title, short name, time and the app's summary of its last turn. Its `開啟` button, or the row of name buttons under the room, opens that session through the app's deep link (`claude://claude.ai/epitaxy/<id>`).
 
 `選角色` under the room (or `/session-room-cast`) opens a pane to choose which of the 24 characters appear; the choice is kept across sessions. Sessions outnumbering the chosen characters repeat them.
+
+## License
+
+The code is under the [MIT License](LICENSE). The art stays CC0, as below.
 
 ## Credits and licenses
 
