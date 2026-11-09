@@ -134,6 +134,61 @@ test('a status file changing redraws the room with no reload', async ($, on) => 
   expect(await altNow()).toBe('房間是空的')
 })
 
+test('on Windows it finds sessions by USERPROFILE and tasklist, whatever the path style', async ($, on) => {
+  // Off Windows the engine takes C:\ for a relative path and puts its own folder before it.
+  const windowsPath = (path: string) => path.slice(path.indexOf('C:\\'))
+  const clock = mock.clock(on)
+  mock.store(on)
+  const live = 'C:\\Users\\u/.claude/sessions'
+  const hostOrg = 'C:\\Users\\u\\AppData\\Roaming/Claude/claude-code-sessions/acc/org'
+  const files = new Map([
+    [`${live}/7.json`, JSON.stringify({ pid: 7, sessionId: 's', cwd: 'C:\\Proj\\sub', status: 'busy', hostSessionId: 'local_ab' })],
+    [`${live}/8.json`, JSON.stringify({ pid: 8, sessionId: 'dead', cwd: 'C:\\Proj', status: 'busy' })],
+    [`${live}/9.json`, JSON.stringify({ pid: 9, sessionId: 'other', cwd: 'C:\\Project2', status: 'busy' })],
+    [`${hostOrg}/local_ab.json`, JSON.stringify({ sessionId: 'local_ab', title: '視窗任務', lastAssistantUuid: 'u' })],
+  ])
+  const env: Record<string, string> = { OS: 'Windows_NT', USERPROFILE: 'C:\\Users\\u', APPDATA: 'C:\\Users\\u\\AppData\\Roaming' }
+  const ran: Array<readonly string[]> = []
+
+  on('env.get', (_, e) => ({ value: env[e.name] }))
+  on('session.root', () => ({ value: 'c:\\proj' }))
+  on('fs.list', (_, e) => {
+    const prefix = `${windowsPath(e.path)}/`
+    const names = [...files.keys()].filter(path => path.startsWith(prefix)).map(path => path.slice(prefix.length))
+    const seen = new Set(names.map(name => name.split('/')[0] ?? ''))
+
+    return { value: [...seen].map(name => ({ name, kind: names.includes(name) ? 'file' : 'dir', size: 0, mtimeMs: 1, isLink: false })) }
+  })
+  on('fs.read', (_, e) => ({ value: files.get(windowsPath(e.path)) ?? '' }))
+  on('process.run', (_, e) => {
+    ran.push(e.argv)
+
+    return {
+      value: {
+        exitCode: 0,
+        stdout: '"claude.exe","7","Console","1","10,000 K"\r\n"claude.exe","9","Console","1","10,000 K"\r\n',
+        stderr: '',
+        isStdoutTruncated: false,
+        isStderrTruncated: false,
+      },
+    }
+  })
+  on('command.register', () => ({ value: { command: 'session-room' } }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+
+  await $.session.start({ cwd: 'c:\\proj', surface: 'desktop', isInteractive: true })
+  await clock.settle()
+
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  // Only the live session of this project: 8 has died and 9 only shares a name prefix.
+  expect((await ui.find({ type: 'Svg' }))?.props?.alt).toBe('工作中：視窗任務')
+  expect(ran[0]).toEqual(['tasklist', '/FO', 'CSV', '/NH'])
+  await ui.press({ key: 'goto-local_ab' })
+  expect(ran.at(-1)).toEqual(['rundll32', 'url.dll,FileProtocolHandler', 'claude://claude.ai/epitaxy/local_ab'])
+  await ui.unmount()
+})
+
 test('pressing a card opens that session', async ($, on) => {
   on('state.get', seeded)
   const ran: Array<readonly string[]> = []

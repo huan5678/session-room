@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.1](https://github.com/huan5678/session-room/releases/tag/v0.3.1) - 2026-11-09
+
+### Fixed
+
+- Windows: the room stayed empty because the mod looked for sessions with `HOME` and `ps`. It now uses `USERPROFILE`, `tasklist`, `%APPDATA%\Claude\claude-code-sessions` and `rundll32`, and compares paths regardless of slash style and case. This is covered by a simulated test only and has not yet been run on Windows.
+
 ## [0.3.0](https://github.com/huan5678/session-room/releases/tag/v0.3.0) - 2026-11-09
 
 ### Added

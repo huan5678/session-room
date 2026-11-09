@@ -122,12 +122,17 @@ export const register: Register = on => {
   let alive = new Set<number>()
   let ticks = 0
   let isTicking = false
+  let isWindows = false
 
   on('session.start', async ($, e, next) => {
-    const home = await $.env.get('HOME')
+    isWindows = (await $.env.get('OS')) === 'Windows_NT'
+    const home = isWindows ? await $.env.get('USERPROFILE') : await $.env.get('HOME')
     const configured = await $.env.get('CLAUDE_CONFIG_DIR')
     const liveDir = `${configured ?? `${home}/.claude`}/sessions`
-    const hostDir = `${home}/Library/Application Support/Claude/claude-code-sessions`
+    const hostDir = isWindows
+      ? `${await $.env.get('APPDATA')}/Claude/claude-code-sessions`
+      : `${home}/Library/Application Support/Claude/claude-code-sessions`
+    const samePath = (path: string) => (isWindows ? path.replaceAll('\\', '/').toLowerCase() : path)
 
     const readLive = async () => {
       const names = (await $.fs.list(liveDir)).map(one => one.name).filter(name => name.endsWith('.json'))
@@ -175,6 +180,11 @@ export const register: Register = on => {
     const readAlive = async () => {
       const pids = [...lastLive.values()].map(one => String(one.pid))
       if (pids.length === 0) return
+      if (isWindows) {
+        const { stdout } = await $.process.run(['tasklist', '/FO', 'CSV', '/NH'], { timeoutMs: 5000 })
+        alive = new Set([...stdout.matchAll(/^"[^"]*","(\d+)"/gm)].map(match => Number(match[1])))
+        return
+      }
       const { stdout } = await $.process.run(['ps', '-o', 'pid=', '-p', pids.join(',')], { timeoutMs: 5000 })
       alive = new Set(stdout.split('\n').map(Number).filter(Boolean))
     }
@@ -183,11 +193,12 @@ export const register: Register = on => {
       if (isTicking) return
       isTicking = true
       try {
-        const rootDir = (await $.session.root()).replace(/\/\.claude\/worktrees\/[^/]+$/, '')
+        const rootDir = samePath(await $.session.root()).replace(/\/\.claude\/worktrees\/[^/]+$/, '')
         await readLive()
-        const inProject = [...lastLive.values()].filter(
-          live => !live.spare && (live.cwd === rootDir || live.cwd.startsWith(`${rootDir}/`)),
-        )
+        const inProject = [...lastLive.values()].filter(live => {
+          const cwd = samePath(live.cwd)
+          return !live.spare && (cwd === rootDir || cwd.startsWith(`${rootDir}/`))
+        })
         await readHosts(new Set(inProject.flatMap(live => live.hostSessionId ?? [])))
         if (ticks++ % SLOW_EVERY === 0) await readAlive()
 
@@ -321,9 +332,10 @@ export const register: Register = on => {
     const chosen = await read($, cast)
     const columns = e.props.bodyColumns ?? 60
 
-    // ponytail: macOS `open`, the only platform the app's session folder path covers here.
     const openSession = (link: string) => () => {
-      void $.process.run(['open', link]).catch(() => $.ui.toast(CANNOT_OPEN))
+      // rundll32, not `start`: no shell parses the link.
+      const command = isWindows ? ['rundll32', 'url.dll,FileProtocolHandler', link] : ['open', link]
+      void $.process.run(command).catch(() => $.ui.toast(CANNOT_OPEN))
     }
 
     const card = (person: Person, accent: string) => {
