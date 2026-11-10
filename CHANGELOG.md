@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.3](https://github.com/huan5678/session-room/releases/tag/v0.3.3) - 2026-11-10
+
+### Changed
+
+- The READMEs now cover Windows, confirmed working on a Windows desktop with 0.3.2, and how to update an installed copy: refresh the marketplace first, or the version stays old and the desktop app's update button stays grey.
+
+No change to the mod's behaviour.
+
 ## [0.3.2](https://github.com/huan5678/session-room/releases/tag/v0.3.2) - 2026-11-10
 
 ### Fixed

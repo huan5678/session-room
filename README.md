@@ -8,7 +8,7 @@ A pane beside the chat that draws this project's Claude sessions as characters i
 
 *Preview drawn by the mod's own `roomSvg` from made-up sessions. In the pane, a board and name buttons sit below the room.*
 
-Requires the Claude desktop app on macOS: the room is SVG, which only the desktop surface draws (a terminal shows the board alone), and session titles and links come from the app's local files.
+Requires the Claude desktop app on macOS or Windows: the room is SVG, which only the desktop surface draws (a terminal shows the board alone), and session titles and links come from the app's local files. Linux has not been tried. If the room stays empty, a line under it says why.
 
 ## Install
 
@@ -25,6 +25,17 @@ claude plugin install session-room --marketplace huan5678/session-room
 ```
 
 In the desktop app, where `/plugin` does not run: click + next to the prompt box, then Plugins, Add marketplace with `huan5678/session-room`, then Add plugin.
+
+## Update
+
+An installed copy only sees a new release once its marketplace is refreshed: until then the version stays the same and the desktop app's update button stays grey. From a shell:
+
+```bash
+claude plugin marketplace update session-room
+claude plugin update session-room@session-room
+```
+
+Then restart the app. Removing the plugin and adding it again is not enough on its own: it installs the cached version again.
 
 ## What it shows
 
@@ -68,9 +79,11 @@ Modified or based on AxulArt's sprites. The changes: the 24 characters are recol
 
 The mod API has no list of other sessions, so the mod polls local files every 2 seconds through `$.fs` and `$.process`. These files are internal to Claude Code and the desktop app, not a documented API, and may change between releases:
 
-- `~/.claude/sessions/<pid>.json`: `status` (`busy`, `idle`, `waiting`), `waitingFor`, `cwd`, `name`, `hostSessionId`. The `.key` files beside them are never read.
-- `~/Library/Application Support/Claude/claude-code-sessions/*/*/local_*.json`: `title`, `isArchived`, `postTurnSummary`, `spawnedFrom.name`. Only those fields are kept. Only this project's live sessions are read, and only when a record changed.
-- `ps -p <pids>`, every 6 seconds: drops status files whose process has died.
+- `~/.claude/sessions/<pid>.json` (on Windows `%USERPROFILE%\.claude\sessions`): `status` (`busy`, `idle`, `waiting`), `waitingFor`, `cwd`, `name`, `hostSessionId`. The `.key` files beside them are never read.
+- `~/Library/Application Support/Claude/claude-code-sessions/*/*/local_*.json` (on Windows `%APPDATA%\Claude\claude-code-sessions`): `title`, `isArchived`, `postTurnSummary`, `spawnedFrom.name`. Only those fields are kept. Only this project's live sessions are read, and only when a record changed.
+- `ps -p <pids>` (on Windows `tasklist`), every 6 seconds: drops status files whose process has died.
+
+A session opens with `open` on macOS and `rundll32 url.dll,FileProtocolHandler` on Windows.
 
 ## Rebuild the sprites
 

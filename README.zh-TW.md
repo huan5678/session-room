@@ -8,7 +8,7 @@
 
 *預覽圖由 mod 自己的 `roomSvg` 用虛構的 sessions 畫出。實際的 pane 裡，房間下方還有看板和名字按鈕。*
 
-需要 macOS 上的 Claude desktop app：房間是 SVG，只有 desktop 畫得出來（terminal 只會顯示看板），session 標題和連結也來自 app 的本機檔案。
+需要 macOS 或 Windows 上的 Claude desktop app：房間是 SVG，只有 desktop 畫得出來（terminal 只會顯示看板），session 標題和連結也來自 app 的本機檔案。Linux 還沒試過。房間一直是空的時候，下方會有一行字說明原因。
 
 ## 安裝
 
@@ -25,6 +25,17 @@ claude plugin install session-room --marketplace huan5678/session-room
 ```
 
 Desktop app 不能用 `/plugin`：按輸入框旁的 **+**，選 Plugins，用 `huan5678/session-room` 執行 Add marketplace，再按 Add plugin。
+
+## 更新
+
+已安裝的外掛要等 marketplace 重新整理後，才看得到新版本；在那之前，版本號不會變，desktop app 的「更新」按鈕也會是灰的。從 shell 執行：
+
+```bash
+claude plugin marketplace update session-room
+claude plugin update session-room@session-room
+```
+
+然後重開 app。只移除外掛再裝回來沒有用，會裝回快取裡的舊版。
 
 ## 畫面內容
 
@@ -68,9 +79,11 @@ Modified or based on AxulArt's sprites。修改內容：24 個角色由 Girl、B
 
 Mod API 沒有提供其他 session 的清單，所以這個 mod 每 2 秒透過 `$.fs` 和 `$.process` 輪詢本機檔案。這些檔案是 Claude Code 和 desktop app 的內部檔案，不是公開文件記載的 API，可能隨版本改變：
 
-- `~/.claude/sessions/<pid>.json`：`status`（`busy`、`idle`、`waiting`）、`waitingFor`、`cwd`、`name`、`hostSessionId`。旁邊的 `.key` 檔案一律不讀。
-- `~/Library/Application Support/Claude/claude-code-sessions/*/*/local_*.json`：`title`、`isArchived`、`postTurnSummary`、`spawnedFrom.name`。只保留這些欄位，也只讀這個專案執行中的 sessions，而且只在紀錄有變動時才讀。
-- `ps -p <pids>`，每 6 秒一次：移除程序已結束的狀態檔。
+- `~/.claude/sessions/<pid>.json`（Windows 是 `%USERPROFILE%\.claude\sessions`）：`status`（`busy`、`idle`、`waiting`）、`waitingFor`、`cwd`、`name`、`hostSessionId`。旁邊的 `.key` 檔案一律不讀。
+- `~/Library/Application Support/Claude/claude-code-sessions/*/*/local_*.json`（Windows 是 `%APPDATA%\Claude\claude-code-sessions`）：`title`、`isArchived`、`postTurnSummary`、`spawnedFrom.name`。只保留這些欄位，也只讀這個專案執行中的 sessions，而且只在紀錄有變動時才讀。
+- `ps -p <pids>`（Windows 是 `tasklist`），每 6 秒一次：移除程序已結束的狀態檔。
+
+開啟 session 時，macOS 用 `open`，Windows 用 `rundll32 url.dll,FileProtocolHandler`。
 
 ## 重新產生圖像
 
