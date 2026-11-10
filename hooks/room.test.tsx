@@ -189,6 +189,32 @@ test('on Windows it finds sessions by USERPROFILE and tasklist, whatever the pat
   await ui.unmount()
 })
 
+test('a drive-letter project means Windows, and an unreadable status folder says why the room is empty', async ($, on) => {
+  const clock = mock.clock(on)
+  mock.store(on)
+  const listed: string[] = []
+
+  on('env.get', (_, e) => ({ value: e.name === 'USERPROFILE' ? 'C:\\Users\\u' : undefined }))
+  on('session.root', () => ({ value: 'C:\\proj' }))
+  on('fs.list', (_, e) => {
+    listed.push(e.path)
+    throw new Error('ENOENT')
+  })
+  on('fs.read', () => ({ value: '' }))
+  on('process.run', () => ({ value: { exitCode: 0, stdout: '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }))
+  on('command.register', () => ({ value: { command: 'session-room' } }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+
+  await $.session.start({ cwd: 'C:\\proj', surface: 'desktop', isInteractive: true })
+  await clock.settle()
+
+  expect(listed.some(path => path.endsWith('C:\\Users\\u/.claude/sessions'))).toBe(true)
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  expect((await ui.find({ type: 'Text', text: /讀不到 session 狀態資料夾/ }))?.text).toContain('C:\\Users\\u/.claude/sessions')
+  await ui.unmount()
+})
+
 test('pressing a card opens that session', async ($, on) => {
   on('state.get', seeded)
   const ran: Array<readonly string[]> = []

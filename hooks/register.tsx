@@ -16,6 +16,7 @@ const room = atom({ plugin: 'session-room', key: 'room' } as const, { people: []
 })
 const minute = atom({ plugin: 'session-room', key: 'minute' } as const, 0)
 const expanded = atom({ plugin: 'session-room', key: 'expanded' } as const, [] as string[])
+const diagnosis = atom({ plugin: 'session-room', key: 'diagnosis' } as const, '')
 
 const cast = atom({ plugin: 'session-room', key: 'cast' } as const, [...ALL_CHARACTERS])
 
@@ -123,16 +124,24 @@ export const register: Register = on => {
   let ticks = 0
   let isTicking = false
   let isWindows = false
+  let aliveProblem = ''
 
   on('session.start', async ($, e, next) => {
-    isWindows = (await $.env.get('OS')) === 'Windows_NT'
-    const home = isWindows ? await $.env.get('USERPROFILE') : await $.env.get('HOME')
+    // Either sign will do: a host may start the engine without OS in its environment.
+    isWindows = (await $.env.get('OS')) === 'Windows_NT' || /^[A-Za-z]:[\\/]/.test(await $.session.root())
+    const home = isWindows
+      ? ((await $.env.get('USERPROFILE')) ?? (await $.env.get('HOME')))
+      : ((await $.env.get('HOME')) ?? (await $.env.get('USERPROFILE')))
     const configured = await $.env.get('CLAUDE_CONFIG_DIR')
     const liveDir = `${configured ?? `${home}/.claude`}/sessions`
     const hostDir = isWindows
       ? `${await $.env.get('APPDATA')}/Claude/claude-code-sessions`
       : `${home}/Library/Application Support/Claude/claude-code-sessions`
     const samePath = (path: string) => (isWindows ? path.replaceAll('\\', '/').toLowerCase() : path)
+    // Why the room is empty, when something went wrong: shown under an empty room.
+    const say = async (text: string) => {
+      if (text !== (await read($, diagnosis))) await update($, diagnosis, () => text)
+    }
 
     const readLive = async () => {
       const names = (await $.fs.list(liveDir)).map(one => one.name).filter(name => name.endsWith('.json'))
@@ -180,13 +189,20 @@ export const register: Register = on => {
     const readAlive = async () => {
       const pids = [...lastLive.values()].map(one => String(one.pid))
       if (pids.length === 0) return
-      if (isWindows) {
-        const { stdout } = await $.process.run(['tasklist', '/FO', 'CSV', '/NH'], { timeoutMs: 5000 })
-        alive = new Set([...stdout.matchAll(/^"[^"]*","(\d+)"/gm)].map(match => Number(match[1])))
-        return
+      try {
+        if (isWindows) {
+          const { stdout } = await $.process.run(['tasklist', '/FO', 'CSV', '/NH'], { timeoutMs: 5000 })
+          alive = new Set([...stdout.matchAll(/^"[^"]*","(\d+)"/gm)].map(match => Number(match[1])))
+        } else {
+          const { stdout } = await $.process.run(['ps', '-o', 'pid=', '-p', pids.join(',')], { timeoutMs: 5000 })
+          alive = new Set(stdout.split('\n').map(Number).filter(Boolean))
+        }
+        aliveProblem = ''
+      } catch (error) {
+        // Better a dead session's leftover file in the room than nobody at all.
+        alive = new Set([...lastLive.values()].map(one => one.pid))
+        aliveProblem = `檢查程序失敗，先當作都還在：${String(error).slice(0, 120)}`
       }
-      const { stdout } = await $.process.run(['ps', '-o', 'pid=', '-p', pids.join(',')], { timeoutMs: 5000 })
-      alive = new Set(stdout.split('\n').map(Number).filter(Boolean))
     }
 
     const tick = async () => {
@@ -194,13 +210,32 @@ export const register: Register = on => {
       isTicking = true
       try {
         const rootDir = samePath(await $.session.root()).replace(/\/\.claude\/worktrees\/[^/]+$/, '')
-        await readLive()
+        try {
+          await readLive()
+        } catch (error) {
+          lastLive.clear()
+          await say(`讀不到 session 狀態資料夾 ${liveDir}：${String(error).slice(0, 120)}`)
+          await update($, room, current => nextRoom(current, []))
+          return
+        }
         const inProject = [...lastLive.values()].filter(live => {
           const cwd = samePath(live.cwd)
           return !live.spare && (cwd === rootDir || cwd.startsWith(`${rootDir}/`))
         })
         await readHosts(new Set(inProject.flatMap(live => live.hostSessionId ?? [])))
         if (ticks++ % SLOW_EVERY === 0) await readAlive()
+        const aliveCount = inProject.filter(live => alive.has(live.pid)).length
+        const others = [...new Set([...lastLive.values()].map(live => live.cwd))].slice(0, 3).join('、')
+        await say(
+          aliveProblem ||
+            (lastLive.size === 0
+              ? `${liveDir} 裡沒有 session 狀態檔。`
+              : inProject.length === 0
+                ? `${lastLive.size} 個狀態檔都不在這個專案（${rootDir}），例如：${others}`
+                : aliveCount === 0
+                  ? `這個專案有 ${inProject.length} 個狀態檔，但對應的程序都不在了。`
+                  : ''),
+        )
 
         const seen: Seen[] = []
         for (const live of inProject) {
@@ -329,6 +364,7 @@ export const register: Register = on => {
     const current = await read($, room)
     const now = (await read($, minute)) * 60000
     const open = await read($, expanded)
+    const problem = await read($, diagnosis)
     const chosen = await read($, cast)
     const columns = e.props.bodyColumns ?? 60
 
@@ -446,6 +482,11 @@ export const register: Register = on => {
           <Svg source={source} alt={altOf(current)} width={width} height={Math.round((width * size.height) / size.width)} isInteractive />
         ) : (
           <Text dimColor>人太多，房間畫不下，改看下方看板。</Text>
+        )}
+        {current.people.length === 0 && problem && (
+          <Text size="caption" dimColor wrap="wrap">
+            {problem}
+          </Text>
         )}
         <Box flexDirection="row">
           <Button

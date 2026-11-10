@@ -25,6 +25,6 @@ export type Room = {
 
 declare module 'claude-code' {
   interface PluginState {
-    'session-room': { room: Shaped<Room>; minute: number; expanded: string[]; cast: number[] }
+    'session-room': { room: Shaped<Room>; minute: number; expanded: string[]; cast: number[]; diagnosis: string }
   }
 }

@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.3.2](https://github.com/huan5678/session-room/releases/tag/v0.3.2) - 2026-11-10
+
+### Fixed
+
+- Windows is now also recognised by a drive-letter project path, for hosts that start the engine without `OS` set, and the home folder falls back between `USERPROFILE` and `HOME`.
+- A failed process check no longer empties the room: everyone with a status file stays.
+
+### Added
+
+- An empty room says why under it: the status folder could not be read, held no files, held only other projects' sessions, or their processes were gone.
+
 ## [0.3.1](https://github.com/huan5678/session-room/releases/tag/v0.3.1) - 2026-11-09
 
 ### Fixed
